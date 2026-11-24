@@ -1,5 +1,6 @@
 // Copies site content between MongoDB databases as an EJSON file (users are never included).
 //   Server:  node scripts/site-data.js export > /tmp/site-data.json
+//            node scripts/site-data.js export --only=programs,staffmembers,schedules --out=file.json   (only some collections, written straight to a file)
 //   Local:   node scripts/site-data.js import site-data.json        (upserts by _id into MONGO_URI's database)
 //            node scripts/site-data.js import site-data.json --replace  (empties each collection in the file first, so local mirrors it exactly)
 const fs = require('fs');
@@ -14,6 +15,9 @@ const COLLECTIONS = ['programs', 'staffmembers', 'galleries', 'contents', 'highl
 async function run() {
   const args = process.argv.slice(2);
   const replace = args.includes('--replace');
+  const option = (key) => (args.find((a) => a.startsWith(`--${key}=`)) || '').split('=').slice(1).join('=');
+  const only = option('only') ? option('only').split(',') : COLLECTIONS;
+  const outFile = option('out');
   const [mode, file] = args.filter((a) => !a.startsWith('--'));
   if (!['export', 'import'].includes(mode) || (mode === 'import' && !file)) {
     console.error('Usage: node scripts/site-data.js export > file.json | import file.json');
@@ -31,12 +35,17 @@ async function run() {
   try {
     if (mode === 'export') {
       const out = {};
-      for (const name of COLLECTIONS) out[name] = await db.collection(name).find({}).toArray();
-      process.stdout.write(EJSON.stringify(out, { relaxed: false }));
+      for (const name of only) {
+        if (!COLLECTIONS.includes(name)) throw new Error(`Unknown collection: ${name}`);
+        out[name] = await db.collection(name).find({}).toArray();
+      }
+      const json = EJSON.stringify(out, { relaxed: false });
+      if (outFile) fs.writeFileSync(outFile, json, 'utf8');
+      else process.stdout.write(json);
       return;
     }
 
-    const data = EJSON.parse(fs.readFileSync(file, 'utf8'));
+    const data = EJSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
     console.error(`Importing into database "${db.databaseName}"`);
     for (const name of COLLECTIONS) {
       const docs = data[name] || [];
