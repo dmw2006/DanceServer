@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { api, getImageUrl, API_BASE_URL } from '../services/api';
+import { api, getImageUrl, API_BASE_URL, isImageAttachment, newsAttachments, attachmentFileName } from '../services/api';
 import './AdminDashboard.css';
 
 export function AdminDashboard() {
@@ -712,7 +712,7 @@ function NewsManager() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [date, setDate] = useState(() => toDateInput());
-  const [imageUrl, setImageUrl] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -732,7 +732,7 @@ function NewsManager() {
   async function handleSubmit(e) {
     e.preventDefault();
     try {
-      const post = { title, description: body, imageUrl, date: fromDateInput(date) };
+      const post = { title, description: body, imageUrl: '', attachments, date: fromDateInput(date) };
       if (editing) {
         await api.updateNews(editing, post);
       } else {
@@ -740,7 +740,7 @@ function NewsManager() {
       }
       setTitle('');
       setBody('');
-      setImageUrl('');
+      setAttachments([]);
       setDate(toDateInput());
       setEditing(null);
       await loadNews();
@@ -750,16 +750,16 @@ function NewsManager() {
     }
   }
 
-  async function handlePictureUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleAttachmentUpload(e) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     setUploading(true);
     try {
-      const result = await api.uploadImage(file, token);
-      setImageUrl(result.path);
+      const result = await api.uploadFiles(files, token);
+      setAttachments((current) => [...current, ...result.files]);
     } catch (err) {
       console.error('Upload error:', err);
-      alert(`Failed to upload picture: ${err.message}`);
+      alert(`Failed to upload: ${err.message}`);
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -781,7 +781,7 @@ function NewsManager() {
     setEditing(item._id);
     setTitle(item.title);
     setBody(item.description ?? item.body ?? '');
-    setImageUrl(item.imageUrl || '');
+    setAttachments(newsAttachments(item));
     setDate(toDateInput(item.date || item.updatedAt || item.createdAt));
   }
 
@@ -815,16 +815,31 @@ function NewsManager() {
             style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
           />
         </label>
-        <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label className="btn primary" style={{ cursor: 'pointer' }}>
-            {uploading ? 'Uploading...' : imageUrl ? 'Change Picture' : 'Add Picture'}
-            <input type="file" accept="image/*" onChange={handlePictureUpload} disabled={uploading} style={{ display: 'none' }} />
+        <div style={{ marginBottom: '10px' }}>
+          <label className="btn primary" style={{ cursor: 'pointer', display: 'inline-block' }}>
+            {uploading ? 'Uploading...' : 'Add Attachments'}
+            <input
+              type="file"
+              multiple
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+              onChange={handleAttachmentUpload}
+              disabled={uploading}
+              style={{ display: 'none' }}
+            />
           </label>
-          {imageUrl && (
-            <>
-              <img src={getImageUrl(imageUrl)} alt="Post picture" style={{ height: '60px', borderRadius: '4px' }} />
-              <button type="button" className="btn ghost" style={{ color: 'red' }} onClick={() => setImageUrl('')}>Remove Picture</button>
-            </>
+          <span className="muted" style={{ marginLeft: '10px' }}>Pictures, PDF, Word, Excel, PowerPoint, text or CSV (up to 15 MB each)</span>
+          {attachments.length > 0 && (
+            <ul style={{ listStyle: 'none', padding: 0, margin: '12px 0 0', display: 'grid', gap: '8px' }}>
+              {attachments.map((a, i) => (
+                <li key={`${a.url}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fff', border: '1px solid #ddd', borderRadius: '6px', padding: '6px 10px' }}>
+                  {isImageAttachment(a)
+                    ? <img src={getImageUrl(a.url)} alt={attachmentFileName(a)} style={{ height: '44px', width: '44px', objectFit: 'cover', borderRadius: '4px' }} />
+                    : <span style={{ fontSize: '24px' }} aria-hidden="true">&#128196;</span>}
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachmentFileName(a)}</span>
+                  <button type="button" className="btn ghost" style={{ color: 'red' }} onClick={() => setAttachments(attachments.filter((_, idx) => idx !== i))}>Remove</button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -832,7 +847,7 @@ function NewsManager() {
             {editing ? 'Update' : 'Create'}
           </button>
           {editing && (
-            <button type="button" className="btn ghost" onClick={() => { setEditing(null); setTitle(''); setBody(''); setImageUrl(''); setDate(toDateInput()); }}>
+            <button type="button" className="btn ghost" onClick={() => { setEditing(null); setTitle(''); setBody(''); setAttachments([]); setDate(toDateInput()); }}>
               Cancel
             </button>
           )}
@@ -847,8 +862,10 @@ function NewsManager() {
               {new Date(item.date || item.updatedAt || item.createdAt).toLocaleDateString()}
             </time>
             <p style={{ marginTop: '10px' }}>{item.description ?? item.body}</p>
-            {item.imageUrl && (
-              <img src={getImageUrl(item.imageUrl)} alt={item.title} style={{ maxWidth: '240px', width: '100%', borderRadius: '6px', marginTop: '10px' }} />
+            {newsAttachments(item).length > 0 && (
+              <p className="muted" style={{ marginTop: '10px' }}>
+                {newsAttachments(item).length} attachment{newsAttachments(item).length === 1 ? '' : 's'}: {newsAttachments(item).map(attachmentFileName).join(', ')}
+              </p>
             )}
             <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
               <button onClick={() => handleEdit(item)} className="btn ghost">Edit</button>

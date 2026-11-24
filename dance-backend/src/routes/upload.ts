@@ -55,6 +55,42 @@ router.post('/image', authenticate, (req: Request, res: Response, next) => {
     });
 });
 
+// Attachments for news posts: pictures plus common documents (no html/svg/scripts)
+const attachmentExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.csv'];
+
+const attachmentUpload = multer({
+    storage: storage,
+    limits: { fileSize: 15 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (attachmentExtensions.includes(path.extname(file.originalname).toLowerCase())) {
+            cb(null, true);
+        } else {
+            cb(new Error('That file type is not allowed. Use pictures, PDF, Word, Excel, PowerPoint, text or CSV.'));
+        }
+    }
+});
+
+router.post('/files', authenticate, (req: Request, res: Response) => {
+    attachmentUpload.array('files', 10)(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ message: err.message || 'File upload failed' });
+        }
+
+        if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+            return res.status(400).json({ message: 'No files uploaded' });
+        }
+
+        res.json({
+            files: req.files.map(file => ({
+                url: `/images/${file.filename}`,
+                name: file.originalname,
+                type: file.mimetype,
+                size: file.size,
+            })),
+        });
+    });
+});
+
 // Upload multiple images
 router.post('/images', authenticate, (req: Request, res: Response, next) => {
     upload.array('images', 10)(req, res, (err) => {

@@ -12,10 +12,19 @@ export const getContent = async (req: Request, res: Response) => {
 };
 
 // Only these fields may be written from the admin dashboard
+// Attachments must point at an uploaded file or a normal web link - never javascript: or data: URLs
+const safeAttachmentUrl = /^(\/images\/[\w.\-]+|https?:\/\/\S+)$/;
+
 const pickContentFields = (body: any) => {
     const data: Record<string, unknown> = {};
     for (const key of ['title', 'description', 'imageUrl', 'date']) {
         if (body && body[key] !== undefined) data[key] = body[key];
+    }
+    if (body && Array.isArray(body.attachments)) {
+        data.attachments = body.attachments
+            .filter((a: any) => a && typeof a.url === 'string' && safeAttachmentUrl.test(a.url))
+            .slice(0, 20)
+            .map((a: any) => ({ url: a.url, name: String(a.name || '').slice(0, 200), type: String(a.type || '').slice(0, 100) }));
     }
     return data;
 };

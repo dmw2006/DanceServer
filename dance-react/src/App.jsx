@@ -5,7 +5,7 @@ import { LoginPage } from './pages/LoginPage'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { api, getImageUrl } from './services/api'
+import { api, getImageUrl, isImageAttachment, newsAttachments, attachmentFileName } from './services/api'
 
 const studioProHome = 'https://app.gostudiopro.com/online/index.php?account_id=30387'
 
@@ -427,6 +427,40 @@ const GalleryPage = ({ gallery = [] }) => (
   </section>
 )
 
+const NewsAttachments = ({ item }) => {
+  const attachments = newsAttachments(item)
+  if (attachments.length === 0) return null
+  const pictures = attachments.filter(isImageAttachment)
+  const files = attachments.filter((a) => !isImageAttachment(a))
+  return (
+    <div className="news-attachments">
+      {pictures.length > 0 && (
+        <div className="news-pictures">
+          {pictures.map((a, i) => (
+            <figure key={`${a.url}-${i}`} className="news-picture">
+              <img src={getImageUrl(a.url)} alt={attachmentFileName(a)} loading="lazy" />
+              <figcaption>
+                <a href={getImageUrl(a.url)} download={attachmentFileName(a)}>Download picture</a>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
+      {files.length > 0 && (
+        <ul className="news-files">
+          {files.map((a, i) => (
+            <li key={`${a.url}-${i}`}>
+              <a href={getImageUrl(a.url)} download={attachmentFileName(a)}>
+                <span aria-hidden="true">&#128196;</span> {attachmentFileName(a)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 const NewsPage = ({ news = [] }) => (
   <section className="section news">
     <div className="section-heading">
@@ -436,7 +470,6 @@ const NewsPage = ({ news = [] }) => (
     <div className="news-grid">
       {news.map((item) => (
         <article key={item._id || item.title} className="news-card">
-          {item.imageUrl && <img className="news-image" src={getImageUrl(item.imageUrl)} alt={item.title} loading="lazy" />}
           <div className="news-meta">
             <span className="news-date">
               {new Date(item.date || item.updatedAt || item.createdAt).toLocaleDateString()}
@@ -444,6 +477,7 @@ const NewsPage = ({ news = [] }) => (
           </div>
           <h3>{item.title}</h3>
           <p className="muted">{item.body ?? item.description}</p>
+          <NewsAttachments item={item} />
         </article>
       ))}
     </div>

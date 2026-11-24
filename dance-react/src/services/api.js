@@ -10,6 +10,20 @@ export function getImageUrl(path) {
   return `${API_BASE_URL}/${path}`;
 }
 
+export function isImageAttachment(attachment) {
+  return /^image\//.test(attachment.type || '') || /\.(jpe?g|png|gif|webp)$/i.test(attachment.url || '');
+}
+
+// A news post's attachments, including the single picture older posts stored in imageUrl
+export function newsAttachments(item) {
+  const legacy = item.imageUrl ? [{ url: item.imageUrl, name: '', type: 'image/*' }] : [];
+  return [...legacy, ...(item.attachments || [])];
+}
+
+export function attachmentFileName(attachment) {
+  return attachment.name || decodeURIComponent((attachment.url || '').split('/').pop() || 'download');
+}
+
 // Generic fetch wrapper with error handling
 async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -193,6 +207,26 @@ export const api = {
     return await response.json();
   },
   
+  uploadFiles: async (files, token) => {
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+
+    const response = await fetch(`${API_BASE_URL}/upload/files`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Upload failed: ${response.status}`);
+    }
+
+    return await response.json();
+  },
+
   // User management endpoints
   getAllUsers: (token) => apiRequest('/auth/users', {
     headers: { Authorization: `Bearer ${token}` },
