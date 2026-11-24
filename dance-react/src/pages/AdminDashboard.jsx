@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { api, getImageUrl, API_BASE_URL, isImageAttachment, newsAttachments, attachmentFileName } from '../services/api';
+import { AdminPreview } from '../components/AdminPreview';
+import { PageSettingsEditor } from '../components/PageSettingsEditor';
+import { StudioProEditor } from '../components/StudioProEditor';
 import './AdminDashboard.css';
 
 export function AdminDashboard() {
@@ -51,13 +54,13 @@ export function AdminDashboard() {
             {activeTab === 'contact' && '📍 Contact Page'}
           </h2>
           <p className="muted">
-            {activeTab === 'home' && 'Edit the homepage slideshow and highlights'}
+            {activeTab === 'home' && 'Manage the homepage slideshow'}
             {activeTab === 'classes' && 'Edit class programs and weekly schedule'}
             {activeTab === 'staff' && 'Add and edit staff profiles, photos and bios, with a live preview of the public Staff page'}
             {activeTab === 'news' && 'Create and edit news announcements'}
-            {activeTab === 'handbook' && 'Review handbook content and open the public handbook page'}
-            {activeTab === 'studioPro' && 'Review Studio Pro integration and launch links'}
-            {activeTab === 'contact' && 'Review contact information and map link presentation'}
+            {activeTab === 'handbook' && 'Edit the public handbook sections'}
+            {activeTab === 'studioPro' && 'Edit the Studio Pro link and website picture'}
+            {activeTab === 'contact' && 'Edit contact details and office hours'}
           </p>
           <div className="preview-toolbar">
             <button type="button" className="btn ghost" onClick={() => navigate('/')}>Exit Admin</button>
@@ -75,6 +78,33 @@ export function AdminDashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+function HeroSlidesPreview({ slides }) {
+  const [index, setIndex] = useState(0);
+  const count = slides.length;
+
+  useEffect(() => {
+    if (count < 2) return undefined;
+    const timer = setInterval(() => setIndex(current => (current + 1) % count), 5000);
+    return () => clearInterval(timer);
+  }, [count]);
+
+  return (
+    <AdminPreview title="Home slideshow preview" note="Slideshow changes are saved immediately.">
+      <div className="hero-visual">
+        {count === 0 ? <div className="hero-dancer" aria-label="Default dancer photo" /> : (
+          <div className="hero-slideshow" aria-label="Slideshow preview">
+            {slides.map((slide, i) => (
+              <div key={slide._id || slide.image} className={`hero-slide ${i === index % count ? 'active' : ''}`} aria-hidden={i !== index % count}>
+                <img src={getImageUrl(slide.image)} alt={slide.caption || `Dance Academy photo ${i + 1}`} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </AdminPreview>
   );
 }
 
@@ -176,6 +206,7 @@ function HeroSlidesManager() {
           No pictures yet, so the home page shows its default photo. Add pictures to start the slideshow.
         </p>
       )}
+      <HeroSlidesPreview slides={slides} />
     </div>
   );
 }
@@ -184,12 +215,10 @@ function HomeSectionManager() {
   return (
     <div>
       <div style={{ marginBottom: '24px', padding: '14px 16px', background: '#eef6ff', border: '1px solid #cfe1ff', borderRadius: '10px' }}>
-        <strong>Home section editors</strong>
-        <p className="muted" style={{ marginTop: '6px' }}>Use these tools to control what appears on the public home page.</p>
+        <strong>Home page</strong>
+        <p className="muted" style={{ marginTop: '6px' }}>Manage the slideshow here. The latest News post appears on the home page automatically.</p>
       </div>
       <HeroSlidesManager />
-      <div style={{ height: '28px' }} />
-      <HighlightsManager />
     </div>
   );
 }
@@ -209,33 +238,15 @@ function ClassesSectionManager() {
 }
 
 function HandbookSectionManager() {
-  return (
-    <div className="placeholder-content">
-      <p>Handbook content is currently static in the public site.</p>
-      <p className="muted">To change policy text today, update the handbook content in the website code.</p>
-      <a className="btn ghost" href="/handbook" target="_blank" rel="noreferrer">Open Public Handbook</a>
-    </div>
-  );
+  return <PageSettingsEditor page="handbook" />;
 }
 
 function StudioProSectionManager() {
-  return (
-    <div className="placeholder-content">
-      <p>Studio Pro links are configured and active.</p>
-      <p className="muted">Open the public page to verify button behavior after updates.</p>
-      <a className="btn ghost" href="/studio-pro" target="_blank" rel="noreferrer">Open Public Studio Pro Page</a>
-    </div>
-  );
+  return <StudioProEditor />;
 }
 
 function ContactSectionManager() {
-  return (
-    <div className="placeholder-content">
-      <p>Contact page is active with map and location details.</p>
-      <p className="muted">Open the public page to validate phone, email, and location display after updates.</p>
-      <a className="btn ghost" href="/contact" target="_blank" rel="noreferrer">Open Public Contact Page</a>
-    </div>
-  );
+  return <PageSettingsEditor page="contact" />;
 }
 
 function GalleryManager() {
@@ -1001,6 +1012,54 @@ function NewsManager() {
         </div>
       </form>
 
+      <AdminPreview title="News post preview">
+        <section className="section news">
+          <div className="section-heading">
+            <p className="eyebrow">Newsfeed</p>
+            <h2>Updates for families.</h2>
+            <p className="lede small">Studio news, important dates, and resources for your family.</p>
+          </div>
+          <div className="news-grid">
+            <article className="news-card">
+              <details className="news-details" open>
+                <summary className="news-summary">
+                  <span className="news-date">{date && !Number.isNaN(new Date(`${date}T12:00:00`).getTime()) ? new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</span>
+                  <h3>{title || 'Post title'}</h3>
+                  <span className="news-summary-footer">
+                    <span className="news-toggle"><span className="news-open-label">Read update</span><span className="news-close-label">Close update</span> <span aria-hidden="true">↗</span></span>
+                    {attachments.length > 0 && <span className="news-attachment-count">{attachments.length} attachment{attachments.length === 1 ? '' : 's'}</span>}
+                  </span>
+                </summary>
+                <div className="news-detail-content">
+                  {body && <p className="news-body">{body}</p>}
+                  {attachments.length > 0 && (
+                    <div className="news-attachments">
+                      {attachments.some(isImageAttachment) && (
+                        <div className="news-pictures">
+                          {attachments.filter(isImageAttachment).map((attachment, i) => (
+                            <figure key={`${attachment.url}-${i}`} className="news-picture">
+                              <img src={getImageUrl(attachment.url)} alt={attachmentFileName(attachment)} />
+                              <figcaption>Download picture</figcaption>
+                            </figure>
+                          ))}
+                        </div>
+                      )}
+                      {attachments.some(attachment => !isImageAttachment(attachment)) && (
+                        <ul className="news-files">
+                          {attachments.filter(attachment => !isImageAttachment(attachment)).map((attachment, i) => (
+                            <li key={`${attachment.url}-${i}`}><span aria-hidden="true">&#128196;</span> {attachmentFileName(attachment)}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </details>
+            </article>
+          </div>
+        </section>
+      </AdminPreview>
+
       <div className="news-list" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         {news.map(item => (
           <article key={item._id} style={{ padding: '15px', background: '#fff', border: '1px solid #ddd', borderRadius: '8px' }}>
@@ -1019,96 +1078,6 @@ function NewsManager() {
               <button onClick={() => handleDelete(item._id)} className="btn ghost" style={{ color: 'red' }}>Delete</button>
             </div>
           </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Highlights Manager
-function HighlightsManager() {
-  const [highlights, setHighlights] = useState([]);
-  const [editing, setEditing] = useState(null);
-  const [title, setTitle] = useState('');
-  const [text, setText] = useState('');
-
-  useEffect(() => {
-    loadHighlights();
-  }, []);
-
-  async function loadHighlights() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/highlights`);
-      const data = await response.json();
-      setHighlights(data);
-    } catch (err) {
-      console.error('Error loading highlights:', err);
-    }
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    const data = editing ? { title, text } : { title, text, order: highlights.length };
-    try {
-      if (editing) {
-        await api.updateHighlight(editing, data);
-      } else {
-        await api.createHighlight(data);
-      }
-      setTitle('');
-      setText('');
-      setEditing(null);
-      loadHighlights();
-    } catch (err) {
-      console.error('Error saving highlight:', err);
-      alert(`Failed to save highlight: ${err.message}`);
-    }
-  }
-
-  async function handleDelete(id) {
-    if (confirm('Delete this highlight?')) {
-      try {
-        await api.deleteHighlight(id);
-        loadHighlights();
-      } catch (err) {
-        console.error('Error deleting highlight:', err);
-      }
-    }
-  }
-
-  return (
-    <div>
-      <form onSubmit={handleSubmit} style={{ marginBottom: '30px', padding: '20px', background: '#f5f5f5', borderRadius: '8px' }}>
-        <h3>{editing ? 'Edit Highlight' : 'Create New Highlight'}</h3>
-        <input
-          type="text"
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
-        />
-        <textarea
-          placeholder="Text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          required
-          rows={3}
-          style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
-        />
-        <button type="submit" className="btn primary">{editing ? 'Update' : 'Create'}</button>
-      </form>
-
-      <div style={{ display: 'grid', gap: '15px' }}>
-        {highlights.map(item => (
-          <div key={item._id} style={{ padding: '15px', background: '#fff', border: '1px solid #ddd', borderRadius: '8px' }}>
-            <h4>{item.title}</h4>
-            <p>{item.text}</p>
-            <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
-              <button onClick={() => { setEditing(item._id); setTitle(item.title); setText(item.text); }} className="btn ghost">Edit</button>
-              <button onClick={() => handleDelete(item._id)} className="btn ghost" style={{ color: 'red' }}>Delete</button>
-            </div>
-          </div>
         ))}
       </div>
     </div>
@@ -1178,6 +1147,33 @@ function ProgramsManager() {
         <textarea placeholder="Schedule" value={formData.schedule} onChange={(e) => setFormData({...formData, schedule: e.target.value})} required rows={2} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ddd' }} />
         <button type="submit" className="btn primary">{editing ? 'Update' : 'Create'}</button>
       </form>
+
+      <AdminPreview title="Program preview">
+        <section className="section">
+          <div className="section-heading">
+            <p className="eyebrow">Programs</p>
+            <h2>Classes built for every age and level.</h2>
+          </div>
+          <div className="grouped-programs">
+            <div className="program-group">
+              <div className="program-group-header">
+                <h3>{formData.bucket || 'Age group'}</h3>
+                <span className="tag">1 class</span>
+              </div>
+              <div className="card-grid">
+                <div className="card compact">
+                  <div className="card-header">
+                    <h4>{formData.name || 'Program name'}</h4>
+                    <span className="tag">{formData.age || 'Age'}</span>
+                  </div>
+                  <p className="muted">{formData.style}</p>
+                  <p className="schedule">{formData.schedule}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </AdminPreview>
 
       <div style={{ display: 'grid', gap: '15px' }}>
         {programs.map(item => (
@@ -1286,6 +1282,37 @@ function ScheduleManager() {
           {editing && <button type="button" className="btn ghost" onClick={resetForm}>Cancel</button>}
         </div>
       </form>
+
+      <AdminPreview title="Schedule day preview">
+        <section className="section schedule">
+          <div className="section-heading">
+            <p className="eyebrow">Schedule</p>
+            <h2>{day || 'Select a day'}</h2>
+            <p className="lede small">A representative week on the public schedule calendar.</p>
+          </div>
+          <div className="calendar-month">
+            <div className="calendar-month-header">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(weekday => (
+                <div key={weekday} className="calendar-month-dayhead">{weekday}</div>
+              ))}
+            </div>
+            <div className="calendar-month-grid">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(weekday => (
+                <div key={weekday} className="calendar-cell">
+                  <div className="calendar-cell-body">
+                    {weekday === day && items.filter(item => item.title || item.time || item.studio || item.age).map((item, i) => (
+                      <div key={i} className="calendar-event">
+                        <div className="calendar-event-title">{item.title}</div>
+                        <div className="calendar-event-meta">{item.time} - Studio {item.studio} - {item.age}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </AdminPreview>
 
       <div style={{ display: 'grid', gap: '15px' }}>
         {schedule.map(item => (

@@ -288,6 +288,155 @@
   color: #7f8c8d;
 }
 
+.page-settings-editor {
+  max-width: 860px;
+  display: grid;
+  gap: 18px;
+}
+
+.admin-content .page-settings-intro h3 {
+  margin: 0 0 6px;
+}
+
+.admin-content .page-settings-intro p,
+.admin-content .page-settings-hint {
+  margin: 0;
+  color: #64748b;
+}
+
+.page-settings-form {
+  padding: clamp(16px, 3vw, 26px);
+  display: grid;
+  gap: 18px;
+}
+
+.page-settings-section {
+  min-width: 0;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid #dbe4f1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.page-settings-section legend {
+  padding: 0 8px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.page-settings-form input,
+.page-settings-form textarea {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.page-settings-section input,
+.page-settings-section textarea {
+  margin-bottom: 16px;
+}
+
+.page-settings-field label {
+  margin-bottom: 6px;
+}
+
+.admin-content .page-settings-hint {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.page-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.page-settings-form button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.studio-pro-editor-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  margin: 8px 0 12px;
+  border: 1px solid #dbe4f1;
+  border-radius: 10px;
+}
+
+.admin-page-preview {
+  min-width: 0;
+  margin: 20px 0 30px;
+}
+
+.admin-page-preview-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+  color: #5a45c7;
+}
+
+.admin-page-preview-heading strong {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-page-preview-heading span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.admin-page-preview-stage {
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid #dbe4f1;
+  border-radius: 14px;
+  background: #0e0b18;
+  color: #e9ecf7;
+}
+
+.admin-page-preview-stage .section {
+  padding: clamp(20px, 3vw, 36px);
+}
+
+.admin-content .admin-page-preview-stage h2,
+.admin-content .admin-page-preview-stage h3,
+.admin-content .admin-page-preview-stage h4 {
+  color: #f8f9ff;
+  margin: revert;
+}
+
+.admin-content .admin-page-preview-stage p,
+.admin-content .admin-page-preview-stage .muted {
+  color: #dfe2f0;
+}
+
+.admin-content .admin-page-preview-stage .eyebrow,
+.admin-content .admin-page-preview-stage .news-date {
+  color: #d9ceff;
+}
+
+.admin-content .admin-page-preview-stage .schedule h2,
+.admin-content .admin-page-preview-stage .schedule h3,
+.admin-content .admin-page-preview-stage .schedule p {
+  color: #1f2430;
+}
+
+.admin-page-preview-stage .calendar-month {
+  min-width: 640px;
+}
+
+.page-settings-field .studio-pro-editor-preview ~ .btn {
+  margin-top: 12px;
+}
+
 @media (max-width: 768px) {
   .admin-container {
     grid-template-columns: 1fr;

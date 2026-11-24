@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useEffect, useCallback } from 'react'
+﻿import { useMemo, useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import './App.css'
 import { LoginPage } from './pages/LoginPage'
@@ -6,8 +6,7 @@ import { AdminDashboard } from './pages/AdminDashboard'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { api, getImageUrl, isImageAttachment, newsAttachments, attachmentFileName } from './services/api'
-
-const studioProHome = 'https://app.gostudiopro.com/online/index.php?account_id=30387'
+import { defaultContact, defaultStudioPro, studioProPreviewUrl } from './services/pageDefaults'
 
 // Fallback data in case API fails
 const fallbackHighlights = [
@@ -149,7 +148,7 @@ const HeroSlideshow = ({ slides = [] }) => {
   )
 }
 
-const HomePage = ({ highlights = [], heroSlides = [] }) => (
+const HomePage = ({ highlights = [], heroSlides = [], news = [] }) => (
   <>
     <header className="hero">
       <div className="hero-content">
@@ -184,6 +183,8 @@ const HomePage = ({ highlights = [], heroSlides = [] }) => (
       </div>
     </header>
 
+    {news.length > 0 && <LatestNews item={news[0]} />}
+
     <section className="section highlights">
       {highlights.map((item, index) => (
         <div key={`${item.title}-${index}`} className="highlight-card">
@@ -215,7 +216,21 @@ const programStyles = (program) => {
   return styleMatchers.filter(([, pattern]) => pattern.test(text)).map(([label]) => label)
 }
 
-const ClassesPage = ({ programs = [] }) => {
+const ClassesPage = ({ programs = [], schedule = [] }) => {
+  const [view, setView] = useState('classes')
+
+  return (
+    <>
+      <div className="classes-view-controls" role="group" aria-label="Class display">
+        <button type="button" className={view === 'classes' ? 'active' : ''} aria-pressed={view === 'classes'} onClick={() => setView('classes')}>Class list</button>
+        <button type="button" className={view === 'calendar' ? 'active' : ''} aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>Calendar view</button>
+      </div>
+      {view === 'classes' ? <ClassesList programs={programs} /> : <SchedulePage schedule={schedule} />}
+    </>
+  )
+}
+
+const ClassesList = ({ programs = [] }) => {
   const [ageFilter, setAgeFilter] = useState('All')
   const [styleFilter, setStyleFilter] = useState('All')
 
@@ -291,6 +306,7 @@ const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sat
 
 const SchedulePage = ({ schedule = [] }) => {
   const [ageFilter, setAgeFilter] = useState('All')
+  const [monthOffset, setMonthOffset] = useState(0)
 
   const today = useMemo(() => {
     const now = new Date()
@@ -304,8 +320,9 @@ const SchedulePage = ({ schedule = [] }) => {
 
   const monthData = useMemo(() => {
     const now = new Date()
-    const year = now.getFullYear()
-    const month = now.getMonth()
+    const target = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+    const year = target.getFullYear()
+    const month = target.getMonth()
     const startDay = (new Date(year, month, 1).getDay() + 6) % 7 // Monday start
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     const cells = []
@@ -317,12 +334,12 @@ const SchedulePage = ({ schedule = [] }) => {
     }
     const label = new Date(year, month, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
     return { cells, label, month, year }
-  }, [])
+  }, [monthOffset])
 
   const eventsByDayName = useMemo(() => {
     const map = {}
     schedule.forEach((block) => {
-      map[block.day] = block.items
+      map[block.day] = [...(map[block.day] || []), ...(block.items || [])]
     })
     return map
   }, [schedule])
@@ -337,9 +354,14 @@ const SchedulePage = ({ schedule = [] }) => {
       <div className="section-heading">
         <p className="eyebrow">Schedule</p>
         <h2>{monthData.label}</h2>
-        <p className="lede small">Hover to see classes; filter by age to narrow down.</p>
+        <p className="lede small">Weekly classes repeat on this calendar. Check with the studio for holidays and schedule changes.</p>
       </div>
       <div className="month-controls">
+        <div className="calendar-navigation" aria-label="Calendar month navigation">
+          <button type="button" onClick={() => setMonthOffset((offset) => offset - 1)} aria-label="Previous month">← Previous</button>
+          <button type="button" onClick={() => setMonthOffset(0)}>Today</button>
+          <button type="button" onClick={() => setMonthOffset((offset) => offset + 1)} aria-label="Next month">Next →</button>
+        </div>
         <label>
           Age group
           <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value)}>
@@ -354,6 +376,8 @@ const SchedulePage = ({ schedule = [] }) => {
           <span className="legend-dot" /> Today
         </div>
       </div>
+      {schedule.length === 0 && <p className="calendar-empty">No schedule is available yet. Please check back soon.</p>}
+      <div className="calendar-scroll" role="region" aria-label="Class calendar" tabIndex={0}>
       <div className="calendar-month">
         <div className="calendar-month-header">
           {daysOfWeek.map((d) => (
@@ -385,6 +409,7 @@ const SchedulePage = ({ schedule = [] }) => {
             )
           })}
         </div>
+      </div>
       </div>
     </section>
   )
@@ -460,32 +485,104 @@ const NewsAttachments = ({ item }) => {
   )
 }
 
-const NewsPage = ({ news = [] }) => (
-  <section className="section news">
+const NEWS_PAGE_SIZE = 3
+
+const formatNewsDate = (item) => {
+  const date = new Date(item.date || item.updatedAt || item.createdAt)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+const LatestNews = ({ item }) => {
+  const text = item.body ?? item.description ?? ''
+  const excerpt = text.length > 180 ? `${text.slice(0, 180).trimEnd()}…` : text
+
+  return (
+    <section className="section home-news" aria-labelledby="latest-news-heading">
+      <div className="home-news-card">
+        <div className="home-news-copy">
+          <p className="eyebrow" id="latest-news-heading">Latest news</p>
+          <span className="news-date">{formatNewsDate(item)}</span>
+          <h2>{item.title}</h2>
+          {excerpt && <p className="home-news-excerpt">{excerpt}</p>}
+        </div>
+        <NavLink className="home-news-link" to="/news" state={{ newsId: item._id }}>Read the update <span aria-hidden="true">→</span></NavLink>
+      </div>
+    </section>
+  )
+}
+
+const NewsPage = ({ news = [] }) => {
+  const [visibleCount, setVisibleCount] = useState(NEWS_PAGE_SIZE)
+  const location = useLocation()
+  const selectedId = location.state?.newsId
+  const selectedIndex = selectedId ? news.findIndex((item) => item._id === selectedId) : -1
+  const displayedCount = Math.max(visibleCount, selectedIndex + 1)
+
+  return (
+    <section className="section news">
+      <div className="section-heading">
+        <p className="eyebrow">Newsfeed</p>
+        <h2>Updates for families.</h2>
+        <p className="lede small">Studio news, important dates, and resources for your family.</p>
+      </div>
+      {news.length === 0 ? (
+        <p className="news-empty">No updates yet. Check back soon.</p>
+      ) : (
+        <div className="news-grid">
+          {news.slice(0, displayedCount).map((item) => {
+            const text = item.body ?? item.description ?? ''
+            const excerpt = text.length > 220 ? `${text.slice(0, 220).trimEnd()}…` : text
+            const attachmentCount = newsAttachments(item).length
+            return (
+              <article key={item._id || item.title} className="news-card">
+                <details className="news-details" open={selectedId && item._id === selectedId ? true : undefined}>
+                  <summary className="news-summary">
+                    <span className="news-date">{formatNewsDate(item)}</span>
+                    <h3>{item.title}</h3>
+                    {excerpt && <span className="news-excerpt">{excerpt}</span>}
+                    <span className="news-summary-footer">
+                      <span className="news-toggle"><span className="news-open-label">Read update</span><span className="news-close-label">Close update</span> <span aria-hidden="true">↗</span></span>
+                      {attachmentCount > 0 && <span className="news-attachment-count">{attachmentCount} attachment{attachmentCount === 1 ? '' : 's'}</span>}
+                    </span>
+                  </summary>
+                  <div className="news-detail-content">
+                    {text && <p className="news-body">{text}</p>}
+                    <NewsAttachments item={item} />
+                  </div>
+                </details>
+              </article>
+            )
+          })}
+        </div>
+      )}
+      {displayedCount < news.length && (
+        <div className="news-more">
+          <button type="button" className="btn ghost" onClick={() => setVisibleCount(displayedCount + NEWS_PAGE_SIZE)}>Show older updates</button>
+        </div>
+      )}
+    </section>
+  )
+}
+
+
+
+const HandbookPage = ({ handbook }) => handbook ? (
+  <section className="section handbook">
     <div className="section-heading">
-      <p className="eyebrow">Newsfeed</p>
-      <h2>Updates for families.</h2>
+      <p className="eyebrow">Handbook</p>
+      <h2>Policies &amp; Dress Code</h2>
+      <p className="lede small">The essentials for students and families.</p>
     </div>
-    <div className="news-grid">
-      {news.map((item) => (
-        <article key={item._id || item.title} className="news-card">
-          <div className="news-meta">
-            <span className="news-date">
-              {new Date(item.date || item.updatedAt || item.createdAt).toLocaleDateString()}
-            </span>
-          </div>
-          <h3>{item.title}</h3>
-          <p className="muted">{item.body ?? item.description}</p>
-          <NewsAttachments item={item} />
-        </article>
+    <div className="handbook-stack">
+      {handbook.sections.map((section, index) => (
+        <details className="accordion" key={`${section.title}-${index}`}>
+          <summary><span>{section.title}</span><span className="chevron">▼</span></summary>
+          <div className="accordion-body handbook-text">{section.body}</div>
+        </details>
       ))}
     </div>
   </section>
-)
-
-
-
-const HandbookPage = () => (
+) : (
   <section className="section handbook">
     <div className="section-heading">
       <p className="eyebrow">Handbook</p>
@@ -613,7 +710,7 @@ const FounderPage = () => (
   </section>
 )
 
-const StudioProPage = () => (
+const StudioProPage = ({ settings }) => (
   <section className="section callout">
     <div>
       <p className="eyebrow">Studio Pro</p>
@@ -621,37 +718,40 @@ const StudioProPage = () => (
       <p className="lede small">Tap through to banking, tickets for shows, and family accounts.</p>
     </div>
     <div className="callout-actions">
-      <a className="btn primary" href={studioProHome} target="_blank" rel="noreferrer">Open Studio Pro</a>
-      <NavLink className="btn ghost" to="/contact">Schedule a Trial</NavLink>
+      <a className="btn primary" href={settings.url} target="_blank" rel="noreferrer">Open Studio Pro</a>
     </div>
+    <figure className="studio-pro-preview">
+      <img src={studioProPreviewUrl(settings.imageUrl, getImageUrl)} alt="Preview of the Studio Pro website" />
+      <figcaption>Website preview. Select Open Studio Pro to visit the site.</figcaption>
+    </figure>
   </section>
 )
 
-const ContactPage = () => (
+const ContactPage = ({ contact }) => (
   <section className="section contact">
     <div className="section-heading">
       <p className="eyebrow">Location & Contact Info</p>
       <h2>Visit, call, or email us.</h2>
-      <p className="lede small">Office hours Mon-Thu 3:30-7pm, Fri 11am-3pm. Summer hours follow summer classes.</p>
+      <p className="lede small">Find our address, contact details, and office hours below.</p>
     </div>
     <div className="contact-grid">
       <div className="contact-card">
         <h3>Location & Contact</h3>
-        <p className="muted">5801 America Lane</p>
-        <p className="muted">Lakeside, AZ 85929</p>
-        <p className="muted">danceaca@danceacademywhitemountains.com</p>
-        <p className="muted">(928) 537-1406</p>
-        <a className="map-image-link" href="/images/Map.png" target="_blank" rel="noreferrer" aria-label="Open map full screen">
-          <img className="map-image" src="/images/Map.png" alt="Map to The Dance Academy" />
-        </a>
-        <a className="muted map-link" href="https://www.google.com/maps/place/Dance+Academy/@34.1930403,-110.0566905,14z/data=!4m10!1m2!2m1!1sthedanceacadamyofthewhitemountains!3m6!1s0x8728cba088d32d89:0x16c975e00cea5b9c!8m2!3d34.1930403!4d-110.0185817!15sCih0aGUgZGFuY2UgYWNhZGVteSBvZiB0aGUgd2hpdGUgbW91bnRhaW5zWioiKHRoZSBkYW5jZSBhY2FkZW15IG9mIHRoZSB3aGl0ZSBtb3VudGFpbnOSAQxkYW5jZV9zY2hvb2yaASRDaGREU1VoTk1HOW5TMFZKUTBGblNVTXlkblZpYW1kQlJSQULgAQD6AQQIEhA9!16s%2Fg%2F1tdwkzht?entry=ttu" target="_blank" rel="noreferrer">View on Google Maps</a>
+        <p className="muted">{contact.addressLine1}</p>
+        <p className="muted">{contact.addressLine2}</p>
+        <p className="muted">{contact.email}</p>
+        <p className="muted">{contact.phone}</p>
+        {contact.addressLine1 === defaultContact.addressLine1 && contact.addressLine2 === defaultContact.addressLine2 && (
+          <a className="map-image-link" href="/images/Map.png" target="_blank" rel="noreferrer" aria-label="Open map full screen">
+            <img className="map-image" src="/images/Map.png" alt="Map to The Dance Academy" />
+          </a>
+        )}
+        {contact.mapUrl && <a className="muted map-link" href={contact.mapUrl} target="_blank" rel="noreferrer">View on Google Maps</a>}
       </div>
       <div className="contact-card storefront">
         <h3>Storefront & Office Hours</h3>
         <p className="muted">Stop by for registration and questions.</p>
-        <p className="muted">Mon-Thu 3:30-7:00pm</p>
-        <p className="muted">Fri 11:00am-3:00pm</p>
-        <p className="muted">Summer hours follow summer classes.</p>
+        <p className="muted contact-hours">{contact.officeHours}</p>
         <div className="storefront-photo" aria-label="Studio storefront" />
       </div>
     </div>
@@ -668,6 +768,9 @@ function App() {
   const [news, setNews] = useState([])
   const [staff, setStaff] = useState(fallbackStaff)
   const [heroSlides, setHeroSlides] = useState([])
+  const [handbook, setHandbook] = useState(null)
+  const [contact, setContact] = useState(defaultContact)
+  const [studioPro, setStudioPro] = useState(defaultStudioPro)
 
   const loadData = useCallback(() => {
     api.getHighlights().then(setHighlights).catch(() => setHighlights(fallbackHighlights));
@@ -677,6 +780,9 @@ function App() {
     api.getTestimonials().then(setTestimonials).catch(console.error);
     api.getGallery().then(setGallery).catch(console.error);
     api.getNews().then(setNews).catch(console.error);
+    api.getPageSettings('handbook').then(setHandbook).catch(console.error);
+    api.getPageSettings('contact').then((data) => setContact(data || defaultContact)).catch(console.error);
+    api.getPageSettings('studio-pro').then((data) => setStudioPro(data || defaultStudioPro)).catch(console.error);
     api.getStaff()
       .then((list) => { if (Array.isArray(list) && list.length > 0) setStaff(list) })
       .catch(console.error);
@@ -696,6 +802,9 @@ function App() {
         gallery={gallery}
         news={news}
         staff={staff}
+        handbook={handbook}
+        contact={contact}
+        studioPro={studioPro}
       />
     </BrowserRouter>
   )
@@ -713,9 +822,16 @@ function AppLayout({
   gallery,
   news,
   staff,
+  handbook,
+  contact,
+  studioPro,
 }) {
   const location = useLocation()
   const isAdminRoute = location.pathname.startsWith('/admin')
+
+  useLayoutEffect(() => {
+    if (!isAdminRoute) window.scrollTo(0, 0)
+  }, [location.pathname, isAdminRoute])
 
   // Refresh content on each public page visit so admin edits show immediately
   useEffect(() => {
@@ -748,17 +864,17 @@ function AppLayout({
 
           <main className={`main ${isAdminRoute ? 'main-admin-only' : ''}`}>
             <Routes>
-              <Route path="/" element={<HomePage highlights={highlights} heroSlides={heroSlides} />} />
-            <Route path="/classes" element={<ClassesPage programs={programs} />} />
+              <Route path="/" element={<HomePage highlights={highlights} heroSlides={heroSlides} news={news} />} />
+            <Route path="/classes" element={<ClassesPage programs={programs} schedule={schedule} />} />
             <Route path="/schedule" element={<SchedulePage schedule={schedule} />} />
             <Route path="/gallery" element={<GalleryPage gallery={gallery} />} />
             <Route path="/news" element={<NewsPage news={news} />} />
             <Route path="/founder" element={<FounderPage />} />
             <Route path="/staff" element={<StaffPage staff={staff} />} />
-            <Route path="/handbook" element={<HandbookPage />} />
+            <Route path="/handbook" element={<HandbookPage handbook={handbook} />} />
             <Route path="/testimonials" element={<TestimonialsPage testimonials={testimonials} />} />
-            <Route path="/studio-pro" element={<StudioProPage />} />
-            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/studio-pro" element={<StudioProPage settings={studioPro} />} />
+            <Route path="/contact" element={<ContactPage contact={contact} />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           </Routes>
@@ -768,7 +884,7 @@ function AppLayout({
                 <div>
                   <img className="brand-logo" src="/images/Logowcolor.png" alt="The Dance Academy of the White Mountains" />
                   <span className="brand-sub">Of the White Mountains</span>
-                  <p className="muted">5801 America Lane - Lakeside, AZ 85929 - (928) 537-1406</p>
+                  <p className="muted">{[contact.addressLine1, contact.addressLine2, contact.phone].filter(Boolean).join(' - ')}</p>
                 </div>
               </footer>
             )}

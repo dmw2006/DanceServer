@@ -10,7 +10,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $work = Join-Path $env:TEMP 'dance-pull'
 $backupDir = Join-Path $root 'backups'
 $backup = Join-Path $backupDir ("local-before-pull-{0}.json" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
-$allNames = 'programs', 'staffmembers', 'galleries', 'contents', 'highlights', 'testimonials', 'schedules', 'heroslides'
+$allNames = 'programs', 'staffmembers', 'galleries', 'contents', 'highlights', 'testimonials', 'schedules', 'heroslides', 'pagesettings'
 $names = if ($Only) { $Only } else { $allNames }
 
 function Run($what, [scriptblock]$cmd) {

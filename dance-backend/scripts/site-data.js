@@ -11,7 +11,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const { MongoClient } = mongo;
 const { EJSON } = mongo.BSON;
-const COLLECTIONS = ['programs', 'staffmembers', 'galleries', 'contents', 'highlights', 'testimonials', 'schedules', 'heroslides'];
+const COLLECTIONS = ['programs', 'staffmembers', 'galleries', 'contents', 'highlights', 'testimonials', 'schedules', 'heroslides', 'pagesettings'];
 
 async function run() {
   const args = process.argv.slice(2);

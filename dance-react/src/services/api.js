@@ -63,6 +63,11 @@ export const api = {
   getStaff: () => apiRequest('/staff'),
   getTestimonials: () => apiRequest('/testimonials'),
   getHighlights: () => apiRequest('/highlights'),
+  getPageSettings: (page) => apiRequest(`/page-settings/${page}`),
+  updatePageSettings: (page, data) => apiRequest(`/page-settings/${page}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
   getHeroSlides: () => apiRequest('/hero-slides'),
   createHeroSlide: (data) => apiRequest('/hero-slides', {
     method: 'POST',
