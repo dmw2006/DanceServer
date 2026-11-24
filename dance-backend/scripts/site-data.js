@@ -1,0 +1,55 @@
+// Copies site content between MongoDB databases as an EJSON file (users are never included).
+//   Server:  node scripts/site-data.js export > /tmp/site-data.json
+//   Local:   node scripts/site-data.js import site-data.json        (upserts by _id into MONGO_URI's database)
+//            node scripts/site-data.js import site-data.json --replace  (empties each collection in the file first, so local mirrors it exactly)
+const fs = require('fs');
+const path = require('path');
+const { mongo } = require('mongoose');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
+const { MongoClient } = mongo;
+const { EJSON } = mongo.BSON;
+const COLLECTIONS = ['programs', 'staffmembers', 'galleries', 'contents', 'highlights', 'testimonials', 'schedules', 'heroslides'];
+
+async function run() {
+  const args = process.argv.slice(2);
+  const replace = args.includes('--replace');
+  const [mode, file] = args.filter((a) => !a.startsWith('--'));
+  if (!['export', 'import'].includes(mode) || (mode === 'import' && !file)) {
+    console.error('Usage: node scripts/site-data.js export > file.json | import file.json');
+    process.exit(1);
+  }
+  if (!process.env.MONGO_URI) {
+    console.error('MONGO_URI is not set in dance-backend/.env');
+    process.exit(1);
+  }
+
+  const client = new MongoClient(process.env.MONGO_URI);
+  await client.connect();
+  const db = client.db();
+
+  try {
+    if (mode === 'export') {
+      const out = {};
+      for (const name of COLLECTIONS) out[name] = await db.collection(name).find({}).toArray();
+      process.stdout.write(EJSON.stringify(out, { relaxed: false }));
+      return;
+    }
+
+    const data = EJSON.parse(fs.readFileSync(file, 'utf8'));
+    console.error(`Importing into database "${db.databaseName}"`);
+    for (const name of COLLECTIONS) {
+      const docs = data[name] || [];
+      if (replace && data[name]) await db.collection(name).deleteMany({});
+      for (const doc of docs) await db.collection(name).replaceOne({ _id: doc._id }, doc, { upsert: true });
+      console.error(`${name}: ${docs.length}`);
+    }
+  } finally {
+    await client.close();
+  }
+}
+
+run().catch((err) => {
+  console.error(err.message);
+  process.exit(1);
+});
