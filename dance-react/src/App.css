@@ -926,7 +926,7 @@ h2 {
   }
 
   .staff-header {
-    grid-template-columns: 80px 1fr;
+    grid-template-columns: auto 1fr;
     gap: 10px;
   }
 
@@ -939,6 +939,11 @@ h2 {
   }
 
   .staff-avatar {
+    max-width: 120px;
+    max-height: 170px;
+  }
+
+  .staff-avatar.placeholder {
     width: 80px;
     height: 80px;
   }
@@ -1292,9 +1297,9 @@ h2 {
 
 .staff-header {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: auto 1fr;
   align-items: start;
-  gap: 12px;
+  gap: 16px;
 }
 
 .staff-header h3,
@@ -1303,14 +1308,23 @@ h2 {
   color: #f8f9ff;
 }
 
+/* Whole photo, scaled down to fit, never cropped or stretched */
 .staff-avatar {
-  width: 140px;
-  height: 140px;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 200px;
+  max-height: 280px;
+  object-fit: contain;
   border-radius: 12px;
-  background-size: cover;
-  background-position: center top;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.staff-avatar.placeholder {
+  width: 140px;
+  height: 140px;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .staff-title-block {

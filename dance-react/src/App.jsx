@@ -544,7 +544,9 @@ const StaffPage = ({ staff = [] }) => (
         <article key={person._id || person.name} className={`staff-card ${idx % 2 ? 'flip' : ''}`}>
           <div className="staff-content">
             <div className="staff-header">
-              <div className="staff-avatar" aria-label={person.name} style={{ backgroundImage: person.img ? `url(${person._id ? getImageUrl(person.img) : person.img})` : 'none' }} />
+              {person.img
+                ? <img className="staff-avatar" src={person._id ? getImageUrl(person.img) : person.img} alt={person.name} loading="lazy" />
+                : <div className="staff-avatar placeholder" aria-hidden="true" />}
               <div className="staff-title-block">
                 <h4>{person.name}</h4>
                 <p className="muted">{person.title}</p>

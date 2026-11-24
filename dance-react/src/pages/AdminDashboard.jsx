@@ -159,7 +159,7 @@ function HeroSlidesManager() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
         {slides.map((slide, index) => (
           <div key={slide._id} style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '8px', background: '#fff' }}>
-            <img src={getImageUrl(slide.image)} alt={`Slide ${index + 1}`} style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '6px' }} />
+            <img src={getImageUrl(slide.image)} alt={`Slide ${index + 1}`} style={{ width: '100%', height: '120px', objectFit: 'contain', background: '#0e0b18', borderRadius: '6px' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
               <span className="muted">#{index + 1}</span>
               <div style={{ display: 'flex', gap: '4px' }}>
@@ -507,12 +507,9 @@ function StaffPreviewCard({ person }) {
     <article className="staff-card">
       <div className="staff-content">
         <div className="staff-header">
-          <div
-            className="staff-avatar"
-            role="img"
-            aria-label={person.name || 'Staff photo'}
-            style={{ backgroundImage: person.img ? `url(${getImageUrl(person.img)})` : 'none' }}
-          />
+          {person.img
+            ? <img className="staff-avatar" src={getImageUrl(person.img)} alt={person.name || 'Staff photo'} />
+            : <div className="staff-avatar placeholder" aria-hidden="true" />}
           <div className="staff-title-block">
             <h4>{person.name || 'Name'}</h4>
             <p className="muted">{person.title || 'Title'}</p>

@@ -381,8 +381,9 @@
   height: 104px;
   border-radius: 14px;
   background-color: #e8eef8;
-  background-size: cover;
-  background-position: center top;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   border: 1px solid #cfd9e8;
   display: grid;
   place-items: center;
