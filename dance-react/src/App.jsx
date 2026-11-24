@@ -123,11 +123,10 @@ const HeroSlideshow = ({ slides = [] }) => {
         <div
           key={slide._id || slide.image}
           className={`hero-slide ${i === current ? 'active' : ''}`}
-          style={{ backgroundImage: `url(${getImageUrl(slide.image)})` }}
-          role="img"
-          aria-label={slide.caption || `Dance Academy photo ${i + 1}`}
           aria-hidden={i !== current}
-        />
+        >
+          <img src={getImageUrl(slide.image)} alt={slide.caption || `Dance Academy photo ${i + 1}`} decoding="async" />
+        </div>
       ))}
       {count > 1 && (
         <>

@@ -138,7 +138,7 @@
 .hero-dancer {
   min-height: 320px;
   border-radius: 18px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.26), rgba(155, 112, 255, 0.2)), url('/images/DanceCompanyGroupPic20162017.jpg');
+  background: url('/images/DanceCompanyGroupPic20162017.jpg');
   background-size: cover;
   background-position: center;
   border: 1px solid #dfe2f0;
@@ -201,9 +201,13 @@
 
 .hero-slideshow {
   position: relative;
-  min-height: 320px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  aspect-ratio: 3 / 2;
   border-radius: 18px;
   overflow: hidden;
+  background: #0e0b18;
   border: 1px solid #dfe2f0;
   box-shadow: 0 20px 60px rgba(117, 97, 255, 0.25), 0 0 0 1px rgba(223, 226, 240, 0.3);
 }
@@ -211,10 +215,19 @@
 .hero-slide {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
   transition: opacity 0.8s ease;
+}
+
+/* Shrinks to fit the window but is never enlarged past its real size, which is what made photos look soft */
+.hero-slide img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
 }
 
 .hero-slide.active {
@@ -776,8 +789,7 @@ h2 {
     gap: 24px;
   }
 
-  .hero-dancer,
-  .hero-slideshow {
+  .hero-dancer {
     min-height: 240px;
   }
 
