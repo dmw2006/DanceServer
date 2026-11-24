@@ -28,14 +28,14 @@ New-Item -ItemType Directory "$stage\scripts", "$stage\images" | Out-Null
 Copy-Item "$root\dance-backend\src" "$stage\src" -Recurse
 Copy-Item "$root\dance-react\dist" "$stage\dist" -Recurse
 Copy-Item "$root\dance-backend\scripts\site-data.js" "$stage\scripts\"
-foreach ($f in (git -C $root ls-files client/public/images)) { Copy-Item "$root\$($f -replace '/', '\')" "$stage\images\" }
+foreach ($f in (git -C $root ls-files --cached --others --exclude-standard client/public/images)) { Copy-Item "$root\$($f -replace '/', '\')" "$stage\images\" }
 
-Run 'Export classes, staff and schedule from the local database' {
+Run 'Export classes, staff, schedule and news from the local database' {
   Push-Location "$root\dance-backend"
-  try { node scripts/site-data.js export --only=programs,staffmembers,schedules --out="$stage\site-content.json" } finally { Pop-Location }
+  try { node scripts/site-data.js export --only=programs,staffmembers,schedules,contents --out="$stage\site-content.json" } finally { Pop-Location }
 }
 $content = Get-Content "$stage\site-content.json" -Raw | ConvertFrom-Json
-"   programs: $($content.programs.Count), staff: $($content.staffmembers.Count), schedule days: $($content.schedules.Count)"
+"   programs: $($content.programs.Count), staff: $($content.staffmembers.Count), schedule days: $($content.schedules.Count), news posts: $($content.contents.Count)"
 if (-not $content.programs.Count -or -not $content.staffmembers.Count -or -not $content.schedules.Count) { throw 'Export is missing content - stopping.' }
 
 # the server runs Linux: the script must have LF line endings

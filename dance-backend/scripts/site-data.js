@@ -3,6 +3,7 @@
 //            node scripts/site-data.js export --only=programs,staffmembers,schedules --out=file.json   (only some collections, written straight to a file)
 //   Local:   node scripts/site-data.js import site-data.json        (upserts by _id into MONGO_URI's database)
 //            node scripts/site-data.js import site-data.json --replace  (empties each collection in the file first, so local mirrors it exactly)
+//            add --append=contents to skip emptying those collections (records are only added/updated)
 const fs = require('fs');
 const path = require('path');
 const { mongo } = require('mongoose');
@@ -18,6 +19,7 @@ async function run() {
   const option = (key) => (args.find((a) => a.startsWith(`--${key}=`)) || '').split('=').slice(1).join('=');
   const only = option('only') ? option('only').split(',') : COLLECTIONS;
   const outFile = option('out');
+  const append = option('append') ? option('append').split(',') : [];
   const [mode, file] = args.filter((a) => !a.startsWith('--'));
   if (!['export', 'import'].includes(mode) || (mode === 'import' && !file)) {
     console.error('Usage: node scripts/site-data.js export > file.json | import file.json');
@@ -49,7 +51,7 @@ async function run() {
     console.error(`Importing into database "${db.databaseName}"`);
     for (const name of COLLECTIONS) {
       const docs = data[name] || [];
-      if (replace && data[name]) await db.collection(name).deleteMany({});
+      if (replace && data[name] && !append.includes(name)) await db.collection(name).deleteMany({});
       for (const doc of docs) await db.collection(name).replaceOne({ _id: doc._id }, doc, { upsert: true });
       console.error(`${name}: ${docs.length}`);
     }

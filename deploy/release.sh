@@ -48,8 +48,8 @@ cp -an "$REL/images/." "$APP/client/public/images/"
 echo "== Restart"
 pm2 restart "$PM2_NAME" --update-env >/dev/null
 
-echo "== Content (classes, staff, schedule)"
-(cd "$BACK" && node scripts/site-data.js import "$REL/site-content.json" --replace)
+echo "== Content (classes, staff, schedule replaced; news added/updated, posts made on the server are kept)"
+(cd "$BACK" && node scripts/site-data.js import "$REL/site-content.json" --replace --append=contents)
 
 echo "== Health checks"
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
@@ -67,6 +67,9 @@ check "POST /api/auth/register"      "$(code -X POST http://127.0.0.1:5000/api/a
 check "program count"                "$(count http://127.0.0.1:5000/api/programs)"                 "$(node -e 'console.log(require("'"$REL"'/site-content.json").programs.length)')"
 check "staff count"                  "$(count http://127.0.0.1:5000/api/staff)"                    "$(node -e 'console.log(require("'"$REL"'/site-content.json").staffmembers.length)')"
 check "schedule days"                "$(count http://127.0.0.1:5000/api/schedule)"                 "$(node -e 'console.log(require("'"$REL"'/site-content.json").schedules.length)')"
+for id in $(node -e 'for (const c of require("'"$REL"'/site-content.json").contents || []) console.log(c._id.$oid || c._id)'); do
+  check "news post $id" "$(curl -s http://127.0.0.1:5000/api/content | grep -c "$id")" 1
+done
 [ "$fail" = 0 ] || rollback
 echo "   info public site (https) = $(code https://danceacademywhitemountains.com/)"
 echo "== Done. Backup kept at $KEEP"
