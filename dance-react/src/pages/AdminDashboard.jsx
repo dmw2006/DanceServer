@@ -695,11 +695,23 @@ function StaffPhotoManager() {
   );
 }
 
+// <input type="date"> works in yyyy-mm-dd; the post stores local noon so the day never shifts across time zones
+function toDateInput(value) {
+  const d = value ? new Date(value) : new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function fromDateInput(value) {
+  return new Date(`${value}T12:00:00`).toISOString();
+}
+
 function NewsManager() {
   const { token } = useAuthContext();
   const [news, setNews] = useState([]);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [date, setDate] = useState(() => toDateInput());
   const [imageUrl, setImageUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -720,14 +732,16 @@ function NewsManager() {
   async function handleSubmit(e) {
     e.preventDefault();
     try {
+      const post = { title, description: body, imageUrl, date: fromDateInput(date) };
       if (editing) {
-        await api.updateNews(editing, { title, description: body, imageUrl });
+        await api.updateNews(editing, post);
       } else {
-        await api.createNews({ title, description: body, imageUrl });
+        await api.createNews(post);
       }
       setTitle('');
       setBody('');
       setImageUrl('');
+      setDate(toDateInput());
       setEditing(null);
       await loadNews();
     } catch (err) {
@@ -768,6 +782,7 @@ function NewsManager() {
     setTitle(item.title);
     setBody(item.description ?? item.body ?? '');
     setImageUrl(item.imageUrl || '');
+    setDate(toDateInput(item.date || item.updatedAt || item.createdAt));
   }
 
   return (
@@ -790,6 +805,16 @@ function NewsManager() {
           rows={5}
           style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
         />
+        <label style={{ display: 'block', marginBottom: '10px' }}>
+          <span style={{ display: 'block', marginBottom: '4px' }}>Date shown on the post</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+            style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
+          />
+        </label>
         <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <label className="btn primary" style={{ cursor: 'pointer' }}>
             {uploading ? 'Uploading...' : imageUrl ? 'Change Picture' : 'Add Picture'}
@@ -807,7 +832,7 @@ function NewsManager() {
             {editing ? 'Update' : 'Create'}
           </button>
           {editing && (
-            <button type="button" className="btn ghost" onClick={() => { setEditing(null); setTitle(''); setBody(''); setImageUrl(''); }}>
+            <button type="button" className="btn ghost" onClick={() => { setEditing(null); setTitle(''); setBody(''); setImageUrl(''); setDate(toDateInput()); }}>
               Cancel
             </button>
           )}
