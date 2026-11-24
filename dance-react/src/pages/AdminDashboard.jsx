@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { api, getImageUrl, API_BASE_URL, isImageAttachment, newsAttachments, attachmentFileName } from '../services/api';
@@ -53,7 +53,7 @@ export function AdminDashboard() {
           <p className="muted">
             {activeTab === 'home' && 'Edit the homepage slideshow and highlights'}
             {activeTab === 'classes' && 'Edit class programs and weekly schedule'}
-            {activeTab === 'staff' && 'Update staff member photos'}
+            {activeTab === 'staff' && 'Add and edit staff profiles, photos and bios, with a live preview of the public Staff page'}
             {activeTab === 'news' && 'Create and edit news announcements'}
             {activeTab === 'handbook' && 'Review handbook content and open the public handbook page'}
             {activeTab === 'studioPro' && 'Review Studio Pro integration and launch links'}
@@ -496,19 +496,57 @@ function GalleryManager() {
   );
 }
 
+const parseStyles = (text) => text.split(',').map((s) => s.trim()).filter(Boolean);
+const parseBio = (text) => text.split('\n').map((l) => l.trim()).filter(Boolean);
+
+// Same markup and classes as the public Staff page, so what you see here is what visitors get
+function StaffPreviewCard({ person }) {
+  const styles = person.styles || [];
+  const bio = person.bio || [];
+  return (
+    <article className="staff-card">
+      <div className="staff-content">
+        <div className="staff-header">
+          <div
+            className="staff-avatar"
+            role="img"
+            aria-label={person.name || 'Staff photo'}
+            style={{ backgroundImage: person.img ? `url(${getImageUrl(person.img)})` : 'none' }}
+          />
+          <div className="staff-title-block">
+            <h4>{person.name || 'Name'}</h4>
+            <p className="muted">{person.title || 'Title'}</p>
+          </div>
+        </div>
+        {styles.length > 0 && (
+          <div className="staff-styles-block">
+            <p className="styles-heading">Styles</p>
+            <ul className="styles-list">
+              {styles.map((style, i) => <li key={`${style}-${i}`}>{style}</li>)}
+            </ul>
+          </div>
+        )}
+        {bio.length > 0 && (
+          <ul className="staff-bullets">
+            {bio.map((line, i) => <li key={`${i}-${line.slice(0, 12)}`}>{line}</li>)}
+          </ul>
+        )}
+      </div>
+    </article>
+  );
+}
+
+const emptyStaffForm = { name: '', title: '', img: '', styles: '', bio: '' };
+
 function StaffPhotoManager() {
   const { token } = useAuthContext();
   const [staff, setStaff] = useState([]);
   const [editing, setEditing] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
-    name: '',
-    title: '',
-    img: '',
-    styles: '',
-    bio: ''
-  });
+  const [notice, setNotice] = useState('');
+  const [formData, setFormData] = useState(emptyStaffForm);
+  const editorRef = useRef(null);
 
   useEffect(() => {
     loadStaff();
@@ -523,13 +561,18 @@ function StaffPhotoManager() {
     }
   }
 
+  function resetForm() {
+    setEditing(null);
+    setFormData(emptyStaffForm);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     try {
       const staffData = {
         ...formData,
-        styles: formData.styles.split(',').map(s => s.trim()).filter(Boolean),
-        bio: formData.bio.split('\n').filter(line => line.trim())
+        styles: parseStyles(formData.styles),
+        bio: parseBio(formData.bio)
       };
 
       if (editing) {
@@ -537,13 +580,14 @@ function StaffPhotoManager() {
       } else {
         await api.createStaffMember({ ...staffData, order: staff.length });
       }
-      
-      setFormData({ name: '', title: '', img: '', styles: '', bio: '' });
-      setEditing(null);
+
+      setNotice(`${formData.name} was ${editing ? 'updated' : 'added'}.`);
+      resetForm();
       setError('');
       await loadStaff();
     } catch (err) {
       console.error('Error saving staff member:', err);
+      setNotice('');
       setError(`Failed to save staff member: ${err.message || 'Unknown error'}`);
     }
   }
@@ -583,18 +627,22 @@ function StaffPhotoManager() {
     }
   }
 
-  async function handleDelete(id) {
-    if (!confirm('Delete this staff member?')) return;
+  async function handleDelete(item) {
+    if (!confirm(`Delete ${item.name}?`)) return;
     try {
-      await api.deleteStaffMember(id);
+      await api.deleteStaffMember(item._id);
+      if (editing === item._id) resetForm();
+      setNotice(`${item.name} was removed.`);
       await loadStaff();
     } catch (err) {
       console.error('Error deleting staff:', err);
+      setError(`Failed to delete: ${err.message || 'Unknown error'}`);
     }
   }
 
   function handleEdit(item) {
     setEditing(item._id);
+    setNotice('');
     setFormData({
       name: item.name,
       title: item.title,
@@ -602,94 +650,136 @@ function StaffPhotoManager() {
       styles: (item.styles || []).join(', '),
       bio: (item.bio || []).join('\n')
     });
+    editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  return (
-    <div>
-      {error && <p className="error-message" style={{ color: 'red', marginBottom: '20px' }}>{error}</p>}
-      <form onSubmit={handleSubmit} className="admin-form">
-        <input
-          type="text"
-          placeholder="Name"
-          value={formData.name}
-          onChange={(e) => setFormData({...formData, name: e.target.value})}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Title (e.g., Instructor)"
-          value={formData.title}
-          onChange={(e) => setFormData({...formData, title: e.target.value})}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Image path (e.g., /images/staff.jpg) or upload below"
-          value={formData.img}
-          onChange={(e) => setFormData({...formData, img: e.target.value})}
-        />
-        <div>
-          <label className="btn primary" style={{ cursor: 'pointer', marginRight: '10px' }}>
-            {uploading ? 'Uploading...' : 'Upload Photo'}
-            <input type="file" accept="image/*" onChange={handlePhotoUpload} disabled={uploading} style={{ display: 'none' }} />
-          </label>
-          {formData.img && (
-            <img src={getImageUrl(formData.img)} alt="Preview" style={{ height: '60px', borderRadius: '4px', verticalAlign: 'middle' }} />
-          )}
-        </div>
-        <input
-          type="text"
-          placeholder="Styles (comma-separated, e.g., Ballet, Jazz, Tap)"
-          value={formData.styles}
-          onChange={(e) => setFormData({...formData, styles: e.target.value})}
-        />
-        <textarea
-          placeholder="Bio (one paragraph per line)"
-          value={formData.bio}
-          onChange={(e) => setFormData({...formData, bio: e.target.value})}
-          rows="5"
-        />
-        <button type="submit" className="btn primary">
-          {editing ? 'Update' : 'Add'} Staff Member
-        </button>
-        {editing && (
-          <button type="button" className="btn ghost" onClick={() => {
-            setEditing(null);
-            setFormData({ name: '', title: '', img: '', styles: '', bio: '' });
-          }}>
-            Cancel
-          </button>
-        )}
-      </form>
+  const preview = {
+    name: formData.name,
+    title: formData.title,
+    img: formData.img,
+    styles: parseStyles(formData.styles),
+    bio: parseBio(formData.bio)
+  };
 
-      <div className="items-list">
-        {staff.map(item => (
-          <article key={item._id} className="item-card">
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'start' }}>
-              <img src={getImageUrl(item.img)} alt={item.name} style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }} />
-              <div style={{ flex: 1 }}>
-                <h3>{item.name}</h3>
-                <p className="muted">{item.title}</p>
-                <p><strong>Styles:</strong> {(item.styles || []).join(', ')}</p>
-                {(item.bio || []).map((line, i) => <p key={i} style={{ fontSize: '14px', marginTop: '8px' }}>{line}</p>)}
-              </div>
-              <div>
-                <label className="btn primary" style={{ cursor: 'pointer', marginRight: '10px' }}>
-                  {uploading ? 'Uploading...' : 'Change Photo'}
-                  <input type="file" accept="image/*" onChange={(e) => handleCardPhotoUpload(item._id, e)} disabled={uploading} style={{ display: 'none' }} />
-                </label>
-                <button onClick={() => handleEdit(item)} className="btn ghost">Edit</button>
-                <button onClick={() => handleDelete(item._id)} className="btn ghost" style={{ color: 'red' }}>Delete</button>
-              </div>
+  return (
+    <div className="staff-admin">
+      {error && <p className="staff-alert error" role="alert">{error}</p>}
+      {notice && <p className="staff-alert success" role="status">{notice}</p>}
+
+      <section className="staff-editor" ref={editorRef}>
+        <form onSubmit={handleSubmit} className="staff-form">
+          <h3>{editing ? `Editing ${formData.name || 'staff member'}` : 'Add a staff member'}</h3>
+
+          <div className="staff-photo-field">
+            <div
+              className="staff-photo-thumb"
+              role="img"
+              aria-label="Photo preview"
+              style={{ backgroundImage: formData.img ? `url(${getImageUrl(formData.img)})` : 'none' }}
+            >
+              {!formData.img && <span aria-hidden="true">No photo</span>}
             </div>
-          </article>
+            <div className="staff-photo-actions">
+              <label className="btn primary">
+                {uploading ? 'Uploading...' : formData.img ? 'Change photo' : 'Upload photo'}
+                <input type="file" accept="image/*" onChange={handlePhotoUpload} disabled={uploading} hidden />
+              </label>
+              {formData.img && (
+                <button type="button" className="btn ghost" onClick={() => setFormData({ ...formData, img: '' })}>
+                  Remove photo
+                </button>
+              )}
+              <p className="field-hint">Portrait or square photos work best.</p>
+            </div>
+          </div>
+
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="staff-name">Name</label>
+              <input
+                id="staff-name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="staff-title">Title</label>
+              <input
+                id="staff-title"
+                type="text"
+                placeholder="e.g. Instructor"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="staff-styles">Styles taught</label>
+            <input
+              id="staff-styles"
+              type="text"
+              placeholder="Ballet, Jazz, Tap"
+              value={formData.styles}
+              onChange={(e) => setFormData({ ...formData, styles: e.target.value })}
+            />
+            <p className="field-hint">Separate styles with commas.</p>
+          </div>
+
+          <div className="field">
+            <label htmlFor="staff-bio">Bio</label>
+            <textarea
+              id="staff-bio"
+              rows="6"
+              value={formData.bio}
+              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+            />
+            <p className="field-hint">Each line becomes its own bullet point.</p>
+          </div>
+
+          <div className="staff-form-actions">
+            <button type="submit" className="btn primary">{editing ? 'Save changes' : 'Add staff member'}</button>
+            {editing && <button type="button" className="btn ghost" onClick={resetForm}>Cancel</button>}
+          </div>
+        </form>
+
+        <aside className="staff-preview">
+          <p className="staff-preview-label">Live preview</p>
+          <p className="field-hint">How this person will appear on the Staff page.</p>
+          <div className="staff-preview-stage">
+            <StaffPreviewCard person={preview} />
+          </div>
+        </aside>
+      </section>
+
+      <div className="staff-roster-head">
+        <h3>Current staff</h3>
+        <span className="staff-count">{staff.length}</span>
+      </div>
+
+      <div className="staff-roster">
+        {staff.map(item => (
+          <div key={item._id} className={`staff-roster-item${editing === item._id ? ' is-editing' : ''}`}>
+            <div className="staff-preview-stage">
+              <StaffPreviewCard person={item} />
+            </div>
+            <div className="staff-roster-actions">
+              <button type="button" onClick={() => handleEdit(item)} className="btn ghost">Edit</button>
+              <label className="btn ghost">
+                {uploading ? 'Uploading...' : 'Change photo'}
+                <input type="file" accept="image/*" onChange={(e) => handleCardPhotoUpload(item._id, e)} disabled={uploading} hidden />
+              </label>
+              <button type="button" onClick={() => handleDelete(item)} className="btn ghost danger">Delete</button>
+            </div>
+          </div>
         ))}
       </div>
 
       {staff.length === 0 && (
-        <p className="muted" style={{ textAlign: 'center', marginTop: '40px' }}>
-          No staff members yet. Add your first staff member!
-        </p>
+        <p className="muted staff-empty">No staff members yet. Add your first one above.</p>
       )}
     </div>
   );
