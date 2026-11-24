@@ -546,6 +546,8 @@ function StaffPhotoManager() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [formData, setFormData] = useState(emptyStaffForm);
+  const [dragIndex, setDragIndex] = useState(null);
+  const [overIndex, setOverIndex] = useState(null);
   const editorRef = useRef(null);
 
   useEffect(() => {
@@ -638,6 +640,31 @@ function StaffPhotoManager() {
       console.error('Error deleting staff:', err);
       setError(`Failed to delete: ${err.message || 'Unknown error'}`);
     }
+  }
+
+  async function moveStaff(from, to) {
+    if (from === null || from === to || to < 0 || to >= staff.length) return;
+    const reordered = [...staff];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    setStaff(reordered.map((person, i) => ({ ...person, order: i })));
+    try {
+      await Promise.all(
+        reordered.map((person, i) => (person.order === i ? null : api.updateStaffMember(person._id, { order: i })))
+      );
+      setError('');
+      setNotice(`${moved.name} is now number ${to + 1} on the Staff page.`);
+    } catch (err) {
+      console.error('Error reordering staff:', err);
+      setNotice('');
+      setError(`Failed to reorder: ${err.message || 'Unknown error'}`);
+      await loadStaff();
+    }
+  }
+
+  function endDrag() {
+    setDragIndex(null);
+    setOverIndex(null);
   }
 
   function handleEdit(item) {
@@ -759,10 +786,43 @@ function StaffPhotoManager() {
         <h3>Current staff</h3>
         <span className="staff-count">{staff.length}</span>
       </div>
+      {staff.length > 1 && (
+        <p className="field-hint staff-order-hint">
+          Drag a card, or use the arrows, to change the order. The Staff page lists people in this order.
+        </p>
+      )}
 
       <div className="staff-roster">
-        {staff.map(item => (
-          <div key={item._id} className={`staff-roster-item${editing === item._id ? ' is-editing' : ''}`}>
+        {staff.map((item, index) => (
+          <div
+            key={item._id}
+            className={`staff-roster-item${editing === item._id ? ' is-editing' : ''}${dragIndex === index ? ' is-dragging' : ''}${dragIndex !== null && overIndex === index && dragIndex !== index ? ' is-drop-target' : ''}`}
+            draggable
+            onDragStart={(e) => {
+              setDragIndex(index);
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', item._id);
+            }}
+            onDragOver={(e) => {
+              if (dragIndex === null) return;
+              e.preventDefault();
+              if (overIndex !== index) setOverIndex(index);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              moveStaff(dragIndex, index);
+              endDrag();
+            }}
+            onDragEnd={endDrag}
+          >
+            <div className="staff-roster-order">
+              <span className="staff-position">#{index + 1}</span>
+              <span className="staff-drag-grip" aria-hidden="true">&#8942;&#8942; Drag to reorder</span>
+              <div className="staff-move-buttons">
+                <button type="button" className="btn ghost" onClick={() => moveStaff(index, index - 1)} disabled={index === 0} aria-label={`Move ${item.name} earlier`} title="Move earlier">&larr;</button>
+                <button type="button" className="btn ghost" onClick={() => moveStaff(index, index + 1)} disabled={index === staff.length - 1} aria-label={`Move ${item.name} later`} title="Move later">&rarr;</button>
+              </div>
+            </div>
             <div className="staff-preview-stage">
               <StaffPreviewCard person={item} />
             </div>

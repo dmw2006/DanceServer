@@ -574,3 +574,61 @@
     position: static;
   }
 }
+
+/* Staff reordering */
+.admin-content .staff-order-hint {
+  margin: -16px 0 -8px;
+}
+
+.staff-roster-order {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 4px;
+  cursor: grab;
+}
+
+.staff-position {
+  background: #5a45c7;
+  color: #fff;
+  border-radius: 999px;
+  min-width: 34px;
+  padding: 2px 10px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.staff-drag-grip {
+  color: #64748b;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.staff-move-buttons {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.admin-content .staff-move-buttons .btn {
+  padding: 4px 12px;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.staff-move-buttons .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.staff-roster-item.is-dragging {
+  opacity: 0.45;
+}
+
+.staff-roster-item.is-drop-target {
+  border-color: #5bd6d5;
+  box-shadow: 0 0 0 3px rgba(91, 214, 213, 0.45);
+  background: #eafafa;
+}
