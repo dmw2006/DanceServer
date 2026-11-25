@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { api } from '../services/api';
-import { defaultContact, defaultHandbook } from '../services/pageDefaults';
+import { api, getImageUrl } from '../services/api';
+import { defaultContact, defaultHandbook, contactPictureUrls } from '../services/pageDefaults';
+import { useAuthContext } from '../context/AuthContext';
 import { AdminPreview } from './AdminPreview';
 
 function safeHttpUrl(value) {
@@ -38,6 +39,7 @@ function HandbookPreview({ data }) {
 
 function ContactPreview({ data }) {
   const mapUrl = safeHttpUrl(data.mapUrl);
+  const pictures = contactPictureUrls(data, getImageUrl);
   return (
     <AdminPreview title="Contact preview">
       <section className="section contact">
@@ -53,9 +55,9 @@ function ContactPreview({ data }) {
             <p className="muted">{data.addressLine2?.trim() ? data.addressLine2 : 'City, state and ZIP not provided.'}</p>
             <p className="muted">{data.email?.trim() ? data.email : 'Email not provided.'}</p>
             <p className="muted">{data.phone?.trim() ? data.phone : 'Phone not provided.'}</p>
-            {data.addressLine1 === defaultContact.addressLine1 && data.addressLine2 === defaultContact.addressLine2 && (
-              <a className="map-image-link" href="/images/Map.png" target="_blank" rel="noreferrer" aria-label="Open map full screen">
-                <img className="map-image" src="/images/Map.png" alt="Map to The Dance Academy" />
+            {pictures.map && (
+              <a className="map-image-link" href={pictures.map} target="_blank" rel="noreferrer" aria-label="Open map full screen">
+                <img className="map-image" src={pictures.map} alt="Map to The Dance Academy" />
               </a>
             )}
             {mapUrl ? <a className="muted map-link" href={mapUrl} target="_blank" rel="noreferrer">View on Google Maps</a> : (
@@ -66,7 +68,7 @@ function ContactPreview({ data }) {
             <h3>Storefront &amp; Office Hours</h3>
             <p className="muted">Stop by for registration and questions.</p>
             <p className="muted contact-hours">{data.officeHours?.trim() ? data.officeHours : 'Office hours not provided.'}</p>
-            <div className="storefront-photo" aria-label="Studio storefront" />
+            <img className="storefront-photo" src={pictures.storefront} alt="The Dance Academy" />
           </div>
         </div>
       </section>
@@ -84,9 +86,11 @@ const contactFields = [
 ];
 
 export function PageSettingsEditor({ page }) {
+  const { token } = useAuthContext();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const handbook = page === 'handbook';
@@ -94,7 +98,7 @@ export function PageSettingsEditor({ page }) {
   useEffect(() => {
     let mounted = true;
     api.getPageSettings(page).then((value) => {
-      if (mounted) setData(value || (page === 'handbook' ? defaultHandbook : defaultContact));
+      if (mounted) setData(page === 'handbook' ? (value || defaultHandbook) : { ...defaultContact, ...value });
     }).catch(() => {
       if (mounted) setError('Could not load the current page content. Refresh and try again.');
     }).finally(() => {
@@ -116,6 +120,29 @@ export function PageSettingsEditor({ page }) {
       setError(`Could not save changes: ${err.message}`);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePictureUpload(event, key) {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!/\.(png|jpe?g|gif|webp)$/i.test(file.name)) {
+      setError('Choose a PNG, JPEG, GIF, or WebP image.');
+      input.value = '';
+      return;
+    }
+    setError('');
+    setNotice('');
+    setUploading(key);
+    try {
+      const result = await api.uploadImage(file, token);
+      setData((current) => ({ ...current, [key]: result.path }));
+    } catch (err) {
+      setError(`Could not upload the picture: ${err.message}`);
+    } finally {
+      setUploading('');
+      input.value = '';
     }
   }
 
@@ -173,7 +200,7 @@ export function PageSettingsEditor({ page }) {
               setNotice('');
             }}>Add section</button>
           </>
-        ) : contactFields.map(({ key, label, type, multiline, maxLength, hint }) => (
+        ) : <>{contactFields.map(({ key, label, type, multiline, maxLength, hint }) => (
           <div className="page-settings-field" key={key}>
             <label htmlFor={`contact-${key}`}>{label}</label>
             {multiline ? (
@@ -184,8 +211,21 @@ export function PageSettingsEditor({ page }) {
             {hint && <p className="page-settings-hint">{hint}</p>}
           </div>
         ))}
+          {[
+            { key: 'mapImageUrl', label: 'Map picture', preview: contactPictureUrls(data, getImageUrl).map },
+            { key: 'storefrontImageUrl', label: 'Storefront picture', preview: contactPictureUrls(data, getImageUrl).storefront },
+          ].map(({ key, label, preview }) => (
+            <div className="page-settings-field" key={key}>
+              <label htmlFor={`contact-${key}`}>{label}</label>
+              {preview && <img className="studio-pro-editor-preview" src={preview} alt={`${label} preview`} />}
+              <input id={`contact-${key}`} type="file" accept=".png,.jpg,.jpeg,.gif,.webp" disabled={saving || !!uploading} onChange={(event) => handlePictureUpload(event, key)} />
+              <p className="page-settings-hint">{uploading === key ? 'Uploading…' : 'Choose an image up to 5 MB, then save changes.'}</p>
+              {data[key] && <button type="button" className="btn ghost" disabled={saving || !!uploading} onClick={() => { setData((current) => ({ ...current, [key]: '' })); setNotice(''); }}>Use original picture</button>}
+            </div>
+          ))}
+        </>}
         <div className="page-settings-actions">
-          <button type="submit" className="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
+          <button type="submit" className="btn primary" disabled={saving || !!uploading}>{saving ? 'Saving…' : 'Save changes'}</button>
           <a className="btn ghost" href={`/${page}`} target="_blank" rel="noreferrer">View public page</a>
         </div>
       </form>

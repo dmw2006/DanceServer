@@ -52,6 +52,11 @@ test('handbook sections enforce shape, types and size limits', () => {
 
 test('contact fields and map URLs are strictly validated', () => {
     assert.equal(validatePageContent('contact', contact), true);
+    assert.equal(validatePageContent('contact', { ...contact, mapImageUrl: '/images/123-map.png', storefrontImageUrl: '' }), true);
+    for (const mapImageUrl of ['https://example.com/image.png', '/images/../bad.png', '/images/file.svg', null]) {
+        assert.equal(validatePageContent('contact', { ...contact, mapImageUrl }), false);
+    }
+    assert.equal(validatePageContent('contact', { ...contact, storefrontImageUrl: '/images/123-photo.jpg' }), true);
     assert.equal(validatePageContent('contact', { ...contact, mapUrl: '' }), true);
     assert.equal(validatePageContent('contact', { ...contact, mapUrl: 'http://example.com' }), true);
     for (const mapUrl of ['javascript:alert(1)', '//example.com', 'https://', ' https://example.com', 'https://example.com/a b', 'x'.repeat(2049)]) {
@@ -123,6 +128,11 @@ test('HTTP routes authenticate writes, validate input, and return saved content'
         response = await fetch(`${base}/contact`);
         assert.deepEqual(await response.json(), updated);
         assert.equal(documents.size, 1);
+        const contactPictures = { ...updated, mapImageUrl: '/images/123-map.png', storefrontImageUrl: '/images/123-photo.jpg' };
+        response = await fetch(`${base}/contact`, { method: 'PUT', headers, body: JSON.stringify(contactPictures) });
+        assert.equal(response.status, 200);
+        response = await fetch(`${base}/contact`);
+        assert.deepEqual(await response.json(), contactPictures);
             const studioPro = { url: 'https://example.com/register', imageUrl: '' };
             response = await fetch(`${base}/studio-pro`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(studioPro) });
             assert.equal(response.status, 401);

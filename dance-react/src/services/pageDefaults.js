@@ -45,8 +45,18 @@ export const defaultContact = {
   email: 'danceaca@danceacademywhitemountains.com',
   phone: '(928) 537-1406',
   officeHours: 'Mon-Thu 3:30-7:00pm\nFri 11:00am-3:00pm\nSummer hours follow summer classes.',
+  mapImageUrl: '',
+  storefrontImageUrl: '',
   mapUrl: 'https://www.google.com/maps/place/Dance+Academy/@34.1930403,-110.0566905,14z/data=!4m10!1m2!2m1!1sthedanceacadamyofthewhitemountains!3m6!1s0x8728cba088d32d89:0x16c975e00cea5b9c!8m2!3d34.1930403!4d-110.0185817!15sCih0aGUgZGFuY2UgYWNhZGVteSBvZiB0aGUgd2hpdGUgbW91bnRhaW5zWioiKHRoZSBkYW5jZSBhY2FkZW15IG9mIHRoZSB3aGl0ZSBtb3VudGFpbnOSAQxkYW5jZV9zY2hvb2yaASRDaGREU1VoTk1HOW5TMFZKUTBGblNVTXlkblZpYW1kQlJSQULgAQD6AQQIEhA9!16s%2Fg%2F1tdwkzht?entry=ttu',
 };
+
+export function contactPictureUrls(contact, getImageUrl) {
+  const defaultAddress = contact.addressLine1 === defaultContact.addressLine1 && contact.addressLine2 === defaultContact.addressLine2;
+  return {
+    map: contact.mapImageUrl ? getImageUrl(contact.mapImageUrl) : defaultAddress ? '/images/Map.png' : '',
+    storefront: contact.storefrontImageUrl ? getImageUrl(contact.storefrontImageUrl) : '/images/gallery1.jpg',
+  };
+}
 
 export const defaultStudioPro = {
   url: 'https://app.gostudiopro.com/online/index.php?account_id=30387',

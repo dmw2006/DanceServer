@@ -6,7 +6,7 @@ import { AdminDashboard } from './pages/AdminDashboard'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { api, getImageUrl, isImageAttachment, newsAttachments, attachmentFileName } from './services/api'
-import { defaultContact, defaultStudioPro, studioProPreviewUrl } from './services/pageDefaults'
+import { defaultContact, defaultStudioPro, studioProPreviewUrl, contactPictureUrls } from './services/pageDefaults'
 
 // Fallback data in case API fails
 const fallbackHighlights = [
@@ -727,7 +727,9 @@ const StudioProPage = ({ settings }) => (
   </section>
 )
 
-const ContactPage = ({ contact }) => (
+const ContactPage = ({ contact }) => {
+  const pictures = contactPictureUrls(contact, getImageUrl)
+  return (
   <section className="section contact">
     <div className="section-heading">
       <p className="eyebrow">Location & Contact Info</p>
@@ -741,9 +743,9 @@ const ContactPage = ({ contact }) => (
         <p className="muted">{contact.addressLine2}</p>
         <p className="muted">{contact.email}</p>
         <p className="muted">{contact.phone}</p>
-        {contact.addressLine1 === defaultContact.addressLine1 && contact.addressLine2 === defaultContact.addressLine2 && (
-          <a className="map-image-link" href="/images/Map.png" target="_blank" rel="noreferrer" aria-label="Open map full screen">
-            <img className="map-image" src="/images/Map.png" alt="Map to The Dance Academy" />
+        {pictures.map && (
+          <a className="map-image-link" href={pictures.map} target="_blank" rel="noreferrer" aria-label="Open map full screen">
+            <img className="map-image" src={pictures.map} alt="Map to The Dance Academy" />
           </a>
         )}
         {contact.mapUrl && <a className="muted map-link" href={contact.mapUrl} target="_blank" rel="noreferrer">View on Google Maps</a>}
@@ -752,11 +754,12 @@ const ContactPage = ({ contact }) => (
         <h3>Storefront & Office Hours</h3>
         <p className="muted">Stop by for registration and questions.</p>
         <p className="muted contact-hours">{contact.officeHours}</p>
-        <div className="storefront-photo" aria-label="Studio storefront" />
+        <img className="storefront-photo" src={pictures.storefront} alt="The Dance Academy" />
       </div>
     </div>
   </section>
-)
+  )
+}
 
 function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)

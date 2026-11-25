@@ -16,6 +16,10 @@ function isStringWithin(value: unknown, max: number): value is string {
     return typeof value === 'string' && value.length <= max;
 }
 
+function isImagePath(value: unknown): boolean {
+    return isStringWithin(value, 255) && (value === '' || /^\/images\/[\w.-]+\.(?:png|jpe?g|gif|webp)$/i.test(value));
+}
+
 function isMapUrl(value: unknown): boolean {
     if (!isStringWithin(value, 2048)) return false;
     if (value === '') return true;
@@ -39,11 +43,14 @@ export function validatePageContent(page: Page, value: unknown): boolean {
 
     if (page === 'studio-pro') {
         return hasKeys(value, ['url', 'imageUrl']) && value.url !== '' && isMapUrl(value.url) &&
-            isStringWithin(value.imageUrl, 255) && (value.imageUrl === '' || /^\/images\/[\w.-]+\.(?:png|jpe?g|gif|webp)$/i.test(value.imageUrl));
+            isImagePath(value.imageUrl);
     }
 
     const keys = ['addressLine1', 'addressLine2', 'phone', 'email', 'officeHours', 'mapUrl'];
-    return hasKeys(value, keys) &&
+    const imageKeys = ['mapImageUrl', 'storefrontImageUrl'];
+    return keys.every((key) => Object.prototype.hasOwnProperty.call(value, key)) &&
+        Object.keys(value).every((key) => keys.includes(key) || imageKeys.includes(key)) &&
+        imageKeys.every((key) => !Object.prototype.hasOwnProperty.call(value, key) || isImagePath(value[key])) &&
         isStringWithin(value.addressLine1, 200) && isStringWithin(value.addressLine2, 200) &&
         isStringWithin(value.phone, 50) && isStringWithin(value.email, 254) &&
         isStringWithin(value.officeHours, 500) && isMapUrl(value.mapUrl);

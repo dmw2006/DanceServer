@@ -1270,12 +1270,11 @@ h2 {
 }
 
 .storefront-photo {
+  display: block;
   width: 100%;
-  min-height: 160px;
+  max-width: 700px;
+  height: auto;
   border-radius: 10px;
-  background: linear-gradient(135deg, rgba(91, 214, 213, 0.16), rgba(58, 44, 128, 0.12)), url('/images/gallery1.jpg');
-  background-size: cover;
-  background-position: center;
   border: 1px solid rgba(233, 236, 247, 0.15);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
@@ -1299,8 +1298,7 @@ h2 {
 .map-image {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
+  height: auto;
 }
 
 .map-actions {
